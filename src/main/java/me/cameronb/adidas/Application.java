@@ -67,6 +67,18 @@ public class Application {
         }
 
         Console.logBasic("@|green Configuration loaded |@");
+
+        try {
+            boolean validated = Licensing.validateLicense(Config.INSTANCE.getLicense());
+            if(!validated) {
+                Console.logBasic("@|red Could not validate license key |@");
+                System.exit(0);
+            }
+        } catch(IOException ex) {
+            Console.logBasic("@|red Error reading license key. |@");
+            System.exit(0);
+        }
+
         Console.logBasic("@|yellow Loading proxies... |@");
 
         try {

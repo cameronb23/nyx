@@ -1,12 +1,12 @@
 package me.cameronb.adidas.task;
 
-import com.google.gson.*;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import lombok.Getter;
 import me.cameronb.adidas.AdidasAccount;
 import me.cameronb.adidas.Application;
 import me.cameronb.adidas.Cart;
-import me.cameronb.adidas.Region;
-import me.cameronb.adidas.captcha.CaptchaWebServer;
 import me.cameronb.adidas.proxy.Proxy;
 import me.cameronb.adidas.serializable.TaskData;
 import me.cameronb.adidas.util.Accounts;
@@ -25,10 +25,6 @@ import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONTokener;
 
 import java.io.IOException;
 import java.io.InputStream;
