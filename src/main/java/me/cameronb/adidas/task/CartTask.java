@@ -4,6 +4,7 @@ import me.cameronb.adidas.AdidasAccount;
 import me.cameronb.adidas.Application;
 import me.cameronb.adidas.Cart;
 import me.cameronb.adidas.Region;
+import me.cameronb.adidas.captcha.CaptchaWebServer;
 import me.cameronb.adidas.proxy.Proxy;
 import me.cameronb.adidas.util.Accounts;
 import me.cameronb.adidas.util.ClientUtil;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -47,14 +49,16 @@ public class CartTask extends Thread {
     private final String pid;
     private final double size;
     private final int sizeCode;
+    private final String clientId;
     private final CloseableHttpClient httpClient;
     private final BasicCookieStore cookieStore;
     private final Proxy proxy;
 
     private AtomicBoolean running = new AtomicBoolean(true);
 
-    public CartTask(int id, Region region, String pid, double size, BasicCookieStore cookieStore, Proxy proxy) {
+    public CartTask(int id, Region region, String pid, double size, BasicCookieStore cookieStore, Proxy proxy, String clientId) {
         this.id = id;
+        this.clientId = clientId;
         this.region = region;
         this.pid = pid;
         this.size = size;
@@ -157,25 +161,53 @@ public class CartTask extends Thread {
         return this.addToCart();
     }
 
+    private String waitForCaptcha() {
+        try {
+            String cap = Application.getWebServer().getCaptcha();
+
+            if(cap != null) {
+                return cap;
+            }
+
+            sleep(1500);
+        } catch(InterruptedException ex) {
+            Console.logError("Error waiting for captcha.", this.id);
+        }
+
+        return this.waitForCaptcha();
+    }
+
     private boolean addToCart() {
         if(!this.running.get()) {
             return this.timeout();
         }
 
+        String recapResponse = null;
+
+        if(this.clientId != null) {
+            // wait for captcha
+            recapResponse = this.waitForCaptcha();
+        }
+
         HttpPost request = new HttpPost(String.format(
-                "http://www.adidas.%s/on/demandware.store/Sites-adidas-%s-Site/%s/Cart-MiniAddProduct",
+                "http://www.adidas.%s/on/demandware.store/Sites-adidas-%s-Site/%s/Cart-MiniAddProduct%s",
                 this.region.getTld(),
                 this.region.getDemandwareSite(),
-                this.region.getLocale()
+                this.region.getLocale(),
+                this.clientId == null ? "" : "?clientId=" + this.clientId // if clientId is required
         ));
 
         try {
-            List<NameValuePair> params = Arrays.asList(
+            List<NameValuePair> params = new ArrayList<>(Arrays.asList(
                     new BasicNameValuePair("pid", String.format("%s_%d", this.pid, this.sizeCode)),
                     new BasicNameValuePair("Quantity", "1"),
                     new BasicNameValuePair("request", "ajax"),
                     new BasicNameValuePair("responseformat", "json")
-            );
+            ));
+
+            if(recapResponse != null) {
+                params.add(new BasicNameValuePair("g-recaptcha-response", recapResponse));
+            }
 
             request.setEntity(new UrlEncodedFormEntity(params));
         } catch(UnsupportedEncodingException ex) {

@@ -46,6 +46,10 @@ public class ProxyLoader {
     }
 
     public Proxy getProxy() {
+        if(this.proxiesLoaded.size() < 1) {
+            return null;
+        }
+
         return this.proxiesLoaded.get(ThreadLocalRandom.current().nextInt(0, proxiesLoaded.size()));
     }
 }

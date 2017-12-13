@@ -31,6 +31,7 @@ public class RequestTask extends Thread {
     private Proxy proxy;
 
     private AtomicBoolean running = new AtomicBoolean(true);
+    private String clientId = null;
 
     public RequestTask(int id, Region region, String pid, double size, Proxy proxy) {
         this.id = id;
@@ -63,7 +64,7 @@ public class RequestTask extends Thread {
 
             if(passed) {
                 Console.logSuccess("Passed splash!", this.id);
-                this.cartTask = new CartTask(this.id, this.region, this.pid, this.size, this.cookieStore, this.proxy);
+                this.cartTask = new CartTask(this.id, this.region, this.pid, this.size, this.cookieStore, this.proxy, this.clientId);
                 this.cartTask.start();
 
                 // RELEASE RESOURCE.
@@ -122,6 +123,8 @@ public class RequestTask extends Thread {
 
             System.out.println("Client ID: " + clientId);
             System.out.println("Sitekey: " + sitekey);
+
+            this.clientId = clientId;
 
             return true;
         }
