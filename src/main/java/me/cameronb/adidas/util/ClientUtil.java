@@ -23,7 +23,7 @@ import java.util.List;
  */
 public class ClientUtil {
 
-    public static CloseableHttpClient createClient(Region region, BasicCookieStore cookieStore, Proxy proxy, boolean json) {
+    public static CloseableHttpClient createClient(String url, Region region, BasicCookieStore cookieStore, Proxy proxy, boolean json) {
         HttpClientBuilder clientBuilder = HttpClientBuilder.create();
 
         RequestConfig.Builder configBuilder = RequestConfig.custom()
@@ -40,13 +40,17 @@ public class ClientUtil {
 
         // TODO: proxy authentication
 
+        String host = url.contains("adidas") ? String.format("www.adidas.%s", region.getTld()) : "www.cartchefs.co.uk";
+        String origin = "http://" + host;
+        String referer = url.contains("adidas") ? String.format("http://www.adidas.%s/yeezy", region.getTld()) : "http://www.cartchefs.co.uk/yeezy";
+
         List<Header> defaultHeaders = Arrays.asList(
                 new BasicHeader(HttpHeaders.ACCEPT, json ? "application/json" : "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"),
                 new BasicHeader(HttpHeaders.ACCEPT_ENCODING, "gzip, deflate"),
                 new BasicHeader(HttpHeaders.ACCEPT_LANGUAGE, "en-US,en;q=0.9"),
-                new BasicHeader(HttpHeaders.HOST, String.format("www.adidas.%s", region.getTld())),
-                new BasicHeader("Origin", String.format("http://www.adidas.%s", region.getTld())),
-                new BasicHeader(HttpHeaders.REFERER, String.format("http://www.adidas.%s/yeezy", region.getTld())),
+                new BasicHeader(HttpHeaders.HOST, host),
+                new BasicHeader("Origin", origin),
+                new BasicHeader(HttpHeaders.REFERER, referer),
                 new BasicHeader(HttpHeaders.CONNECTION, "keep-alive"),
                 new BasicHeader("DNT", "1"),
                 new BasicHeader(HttpHeaders.CACHE_CONTROL, "max-age=0")

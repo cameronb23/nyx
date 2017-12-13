@@ -46,7 +46,7 @@ public class LoadAccountTask implements Callable<Boolean> {
 
     @Override
     public Boolean call() {
-        CloseableHttpClient client = ClientUtil.createClient(this.region, this.cookieStore, this.proxy, false);
+        CloseableHttpClient client = ClientUtil.createClient(this.basketUrl, this.region, this.cookieStore, this.proxy, false);
         try {
             CloseableHttpResponse response = client.execute(new HttpGet(this.basketUrl));
 
@@ -59,7 +59,7 @@ public class LoadAccountTask implements Callable<Boolean> {
             response.close();
             return false;
         } catch (IOException ex) {
-            Console.logError("Unable to fetch basket", -1);
+            Console.logError("Unable to fetch basket: " + ex.getLocalizedMessage(), -1);
             return false;
         }
     }

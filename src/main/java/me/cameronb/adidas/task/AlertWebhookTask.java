@@ -1,13 +1,14 @@
 package me.cameronb.adidas.task;
 
+import me.cameronb.adidas.Application;
 import me.cameronb.adidas.Cart;
+import me.cameronb.adidas.serializable.Config;
 import me.cameronb.adidas.util.Console;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -18,8 +19,6 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.time.Instant;
 import java.util.concurrent.Callable;
 
 /**
@@ -66,14 +65,13 @@ public class AlertWebhookTask implements Callable<Boolean> {
         ));
     }
 
-    @Override
-    public Boolean call() {
+    private boolean makeRequest() {
         try {
             JSONObject jsonBody = createPayload();
 
             CloseableHttpClient client = HttpClientBuilder.create().build();
 
-            HttpPost request = new HttpPost("https://discordapp.com/api/webhooks/384017334605447168/U4f2cjSl7kO5l-ZbngpZTW0WY_wZVCiQYuYdmZytksTd_DwnqUS0SR8Tyv0GS__JaRvI/slack");
+            HttpPost request = new HttpPost(Config.INSTANCE.getDiscordHook() + "/slack");
 
             StringEntity data = new StringEntity(jsonBody.toString());
 
@@ -93,6 +91,17 @@ public class AlertWebhookTask implements Callable<Boolean> {
             response.close();
             client.close();
 
+            if(statusCode == 429) {
+                Console.logError("Discord being ratelimited...", -1);
+                try {
+                    wait(10000);
+                } catch (InterruptedException e) {
+                    Console.logError("error waiting to request webhook", -1);
+                }
+
+                return this.makeRequest();
+            }
+
             if(statusCode / 200 < 2) {
                 // success
                 return true;
@@ -105,9 +114,14 @@ public class AlertWebhookTask implements Callable<Boolean> {
             Console.logError("Error compiling webhook data", -1);
             return false;
         } catch(IOException ex) {
-            ex.printStackTrace();
+            Console.logError("Error sending webhook: " + ex.getMessage(), -1);
             return false;
         }
+    }
+
+    @Override
+    public Boolean call() {
+        return this.makeRequest();
     }
 
 }

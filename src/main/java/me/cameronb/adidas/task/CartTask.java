@@ -8,6 +8,7 @@ import me.cameronb.adidas.AdidasAccount;
 import me.cameronb.adidas.Application;
 import me.cameronb.adidas.Cart;
 import me.cameronb.adidas.proxy.Proxy;
+import me.cameronb.adidas.serializable.Config;
 import me.cameronb.adidas.serializable.TaskData;
 import me.cameronb.adidas.util.Accounts;
 import me.cameronb.adidas.util.ClientUtil;
@@ -44,6 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CartTask extends Thread {
 
     private final int id;
+    private final String url;
     private final TaskData options;
     private final int sizeCode;
     private final String clientId;
@@ -62,7 +64,15 @@ public class CartTask extends Thread {
         this.cookieStore = cookieStore;
         this.proxy = proxy;
 
-        this.httpClient = ClientUtil.createClient(this.options.getRegion(), this.cookieStore, this.proxy, true);
+        this.url = String.format(
+                "http://www.adidas.%s/on/demandware.store/Sites-adidas-%s-Site/%s/Cart-MiniAddProduct%s",
+                this.options.getRegion().getTld(),
+                this.options.getRegion().getDemandwareSite(),
+                this.options.getRegion().getLocale(),
+                this.clientId == null ? "" : "?clientId=" + this.clientId // if clientId is required
+        );
+
+        this.httpClient = ClientUtil.createClient(this.url, this.options.getRegion(), this.cookieStore, this.proxy, true);
     }
 
     public void shutdown() throws IOException {
@@ -136,18 +146,20 @@ public class CartTask extends Thread {
                 c.setUrl(Accounts.generateAutoLoginUrl(this.options.getRegion(), account));
             }
 
-            Future<Boolean> alertFuture = Application.getExecutor().submit(new AlertWebhookTask(c));
+            if(Config.INSTANCE.getDiscordHook().length() > 0) {
+                Future<Boolean> alertFuture = Application.getExecutor().submit(new AlertWebhookTask(c));
 
-            try {
-                boolean alerted = alertFuture.get();
+                try {
+                    boolean alerted = alertFuture.get();
 
-                if(alerted) {
-                    Console.logSuccess("Alerted webhooks successfully", this.id);
-                } else {
-                    Console.logSuccess("Failed to alert webhooks", this.id);
+                    if(alerted) {
+                        Console.logSuccess("Alerted webhooks successfully", this.id);
+                    } else {
+                        Console.logSuccess("Failed to alert webhooks", this.id);
+                    }
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
                 }
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
             }
         }
     }
@@ -191,13 +203,7 @@ public class CartTask extends Thread {
             recapResponse = this.waitForCaptcha();
         }
 
-        HttpPost request = new HttpPost(String.format(
-                "http://www.adidas.%s/on/demandware.store/Sites-adidas-%s-Site/%s/Cart-MiniAddProduct%s",
-                this.options.getRegion().getTld(),
-                this.options.getRegion().getDemandwareSite(),
-                this.options.getRegion().getLocale(),
-                this.clientId == null ? "" : "?clientId=" + this.clientId // if clientId is required
-        ));
+        HttpPost request = new HttpPost(this.url);
 
         try {
             List<NameValuePair> params = new ArrayList<>(Arrays.asList(
@@ -261,12 +267,10 @@ public class CartTask extends Thread {
                 return this.timeout();
             } catch(JsonSyntaxException ex) {
                 System.out.println(responseData);
-                ex.printStackTrace();
                 Console.logError("Error parsing response JSON.", this.id);
                 return this.timeout();
             }
         } catch(IOException ex) {
-            ex.printStackTrace();
             Console.logError(String.format("Failed to send ATC request: %s", ex.getLocalizedMessage()), this.id);
             return this.timeout();
         }

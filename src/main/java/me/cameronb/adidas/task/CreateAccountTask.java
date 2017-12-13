@@ -1,15 +1,14 @@
 package me.cameronb.adidas.task;
 
-import com.google.common.collect.Maps;
 import me.cameronb.adidas.AdidasAccount;
 import me.cameronb.adidas.Region;
 import me.cameronb.adidas.proxy.Proxy;
 import me.cameronb.adidas.util.Accounts;
 import me.cameronb.adidas.util.ClientUtil;
+import me.cameronb.adidas.util.Console;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
-import org.apache.http.client.CookieStore;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -22,7 +21,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.openqa.selenium.Cookie;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -103,7 +101,7 @@ public class CreateAccountTask implements Callable<AdidasAccount> {
 
     @Override
     public AdidasAccount call() {
-        CloseableHttpClient client = ClientUtil.createClient(Region.US, this.cookieStore, this.proxy, false);
+        CloseableHttpClient client = ClientUtil.createClient("https://www.adidas.com", Region.US, this.cookieStore, this.proxy, false);
         AdidasAccount account = Accounts.generateAccount();
 
         try {
@@ -163,7 +161,7 @@ public class CreateAccountTask implements Callable<AdidasAccount> {
 
             return account;
         } catch (IOException e) {
-            e.printStackTrace();
+            Console.logBasic("@|red Unable to create account: " + e.getLocalizedMessage() + " |@");
             return null;
         }
     }

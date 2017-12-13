@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class RequestTask extends Thread {
 
     private final int id;
+    private final String url;
     private final TaskData options;
 
     private CloseableHttpClient client;
@@ -40,7 +41,13 @@ public class RequestTask extends Thread {
         this.cookieStore = new BasicCookieStore();
         this.proxy = proxy;
 
-        this.client = ClientUtil.createClient(this.options.getRegion(), this.cookieStore, this.proxy, false);
+        if(Config.INSTANCE.isTestMode()) {
+            this.url = "http://www.cartchefs.co.uk/splash_test";
+        } else {
+            this.url = String.format("http://www.adidas.com/%s/apps/yeezy/", this.options.getRegion().getMicroSite());
+        }
+
+        this.client = ClientUtil.createClient(this.url, this.options.getRegion(), this.cookieStore, this.proxy, false);
     }
 
     public void shutdown() throws IOException {
@@ -67,6 +74,8 @@ public class RequestTask extends Thread {
                 return this.loop();
             }
 
+            sleep(Config.INSTANCE.getRequestDelay());
+
             boolean passed = refreshPage();
 
             if(passed) {
@@ -79,25 +88,16 @@ public class RequestTask extends Thread {
                 return true;
             }
 
-            sleep(Config.INSTANCE.getRequestDelay());
             return this.loop();
         } catch (IOException | InterruptedException ex) {
-            ex.printStackTrace();
+            Console.logError("Error loading splash page: " + ex.getMessage(), this.id);
             return this.loop();
         }
     }
 
     private boolean refreshPage() throws IOException {
 
-        String url;
-
-        if(Config.INSTANCE.isTestMode()) {
-            url = "http://www.cartchefs.co.uk/splash_test";
-        } else {
-            url = String.format("http://www.adidas.com/%s/apps/yeezy/", this.options.getRegion().getMicroSite());
-        }
-
-        CloseableHttpResponse response = this.client.execute(new HttpGet(url));
+        CloseableHttpResponse response = this.client.execute(new HttpGet(this.url));
         HttpEntity responseEntity = response.getEntity();
         InputStream dataStream = responseEntity.getContent();
 

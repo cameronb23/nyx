@@ -23,7 +23,13 @@ public class Config {
     // define configuration properties and default values
 
     @Getter
+    private String email = "enter license email here";
+
+    @Getter
     private String license = "enter license key here";
+
+    @Getter
+    private String discordHook = "";
 
     @Getter
     @XmlElement(type = Long.class)

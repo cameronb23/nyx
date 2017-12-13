@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config>
-    <license>ENTER LICENSE KEY HERE</license>
+    <email>email here</email>
+    <license>licensekeyhere</license>
+    <discordHook></discordHook>
     <requestDelay>60000</requestDelay>
     <chromeDriverPath>~/Downloads/chromedriver</chromeDriverPath>
     <userAgent>Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36</userAgent>
