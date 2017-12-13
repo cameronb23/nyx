@@ -1,6 +1,5 @@
 package me.cameronb.adidas;
 
-import jdk.internal.util.xml.impl.Input;
 import lombok.Getter;
 import me.cameronb.adidas.captcha.CaptchaWebServer;
 import me.cameronb.adidas.proxy.ProxyLoader;
@@ -13,10 +12,8 @@ import org.fusesource.jansi.AnsiConsole;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import sun.nio.ch.IOUtil;
 
 import java.io.*;
-import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 

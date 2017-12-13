@@ -26,4 +26,8 @@ hs_err_pid*
 *.iml
 target/
 
+# macOS
+.DS_Store
+
 proxies.txt
+tasks.json
