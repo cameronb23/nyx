@@ -2,6 +2,10 @@ package me.cameronb.adidas;
 
 import lombok.Getter;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * Created by Cameron on 12/12/2017.
  */
@@ -29,6 +33,10 @@ public enum Region {
             }
         }
         return null;
+    }
+
+    public static List<String> availableRegions() {
+        return Arrays.stream(values()).map(r -> r.name()).collect(Collectors.toList());
     }
 
 }

@@ -1,11 +1,14 @@
 package me.cameronb.adidas.task;
 
+import com.google.gson.*;
+import lombok.Getter;
 import me.cameronb.adidas.AdidasAccount;
 import me.cameronb.adidas.Application;
 import me.cameronb.adidas.Cart;
 import me.cameronb.adidas.Region;
 import me.cameronb.adidas.captcha.CaptchaWebServer;
 import me.cameronb.adidas.proxy.Proxy;
+import me.cameronb.adidas.serializable.TaskData;
 import me.cameronb.adidas.util.Accounts;
 import me.cameronb.adidas.util.ClientUtil;
 import me.cameronb.adidas.util.Console;
@@ -45,28 +48,30 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CartTask extends Thread {
 
     private final int id;
-    private final Region region;
-    private final String pid;
-    private final double size;
+    private final TaskData options;
     private final int sizeCode;
     private final String clientId;
     private final CloseableHttpClient httpClient;
     private final BasicCookieStore cookieStore;
     private final Proxy proxy;
 
+    @Getter
     private AtomicBoolean running = new AtomicBoolean(true);
 
-    public CartTask(int id, Region region, String pid, double size, BasicCookieStore cookieStore, Proxy proxy, String clientId) {
+    public CartTask(int id, TaskData data, BasicCookieStore cookieStore, Proxy proxy, String clientId) {
         this.id = id;
         this.clientId = clientId;
-        this.region = region;
-        this.pid = pid;
-        this.size = size;
-        this.sizeCode = Sizing.getSizeCode(size);
+        this.options = data;
+        this.sizeCode = Sizing.getSizeCode(this.options.getSize());
         this.cookieStore = cookieStore;
         this.proxy = proxy;
 
-        this.httpClient = ClientUtil.createClient(this.region, this.cookieStore, this.proxy, true);
+        this.httpClient = ClientUtil.createClient(this.options.getRegion(), this.cookieStore, this.proxy, true);
+    }
+
+    public void shutdown() throws IOException {
+        this.running.set(false);
+        this.httpClient.close();
     }
 
     @Override
@@ -89,9 +94,9 @@ public class CartTask extends Thread {
                     String basketUrlEncoded = basketCookie.getValue();
 
                     String basketUrlDecoded = URLDecoder.decode(basketUrlEncoded, "UTF-8");
-                    basketUrl = String.format("http://www.adidas.%s%s", this.region.getTld(), basketUrlDecoded);
+                    basketUrl = String.format("http://www.adidas.%s%s", this.options.getRegion().getTld(), basketUrlDecoded);
 
-                    Future<Boolean> loadedFuture = Application.getExecutor().submit(new LoadAccountTask(this.region, basketUrl, this.cookieStore, null));
+                    Future<Boolean> loadedFuture = Application.getExecutor().submit(new LoadAccountTask(this.options.getRegion(), basketUrl, this.cookieStore, null));
 
                     boolean loaded = loadedFuture.get();
 
@@ -113,8 +118,8 @@ public class CartTask extends Thread {
             Optional<Cookie> sessionCookie = this.cookieStore.getCookies().stream().filter(c -> c.getName().startsWith("dwanony")).findFirst();
 
             Cart c = new Cart(
-                    this.pid,
-                    this.size,
+                    this.options.getPid(),
+                    this.options.getSize(),
                     null,
                     null,
                     null,
@@ -132,7 +137,7 @@ public class CartTask extends Thread {
             if(account != null) {
                 c.setEmail(account.getEmail());
                 c.setPassword(account.getPassword());
-                c.setUrl(Accounts.generateAutoLoginUrl(this.region, account));
+                c.setUrl(Accounts.generateAutoLoginUrl(this.options.getRegion(), account));
             }
 
             Future<Boolean> alertFuture = Application.getExecutor().submit(new AlertWebhookTask(c));
@@ -186,20 +191,21 @@ public class CartTask extends Thread {
 
         if(this.clientId != null) {
             // wait for captcha
+            Console.log("@|yellow Waiting for captcha... |@", this.id);
             recapResponse = this.waitForCaptcha();
         }
 
         HttpPost request = new HttpPost(String.format(
                 "http://www.adidas.%s/on/demandware.store/Sites-adidas-%s-Site/%s/Cart-MiniAddProduct%s",
-                this.region.getTld(),
-                this.region.getDemandwareSite(),
-                this.region.getLocale(),
+                this.options.getRegion().getTld(),
+                this.options.getRegion().getDemandwareSite(),
+                this.options.getRegion().getLocale(),
                 this.clientId == null ? "" : "?clientId=" + this.clientId // if clientId is required
         ));
 
         try {
             List<NameValuePair> params = new ArrayList<>(Arrays.asList(
-                    new BasicNameValuePair("pid", String.format("%s_%d", this.pid, this.sizeCode)),
+                    new BasicNameValuePair("pid", String.format("%s_%d", this.options.getPid(), this.sizeCode)),
                     new BasicNameValuePair("Quantity", "1"),
                     new BasicNameValuePair("request", "ajax"),
                     new BasicNameValuePair("responseformat", "json")
@@ -243,28 +249,21 @@ public class CartTask extends Thread {
             }
 
             try {
-                JSONObject root = new JSONObject(new JSONTokener(responseData));
+                JsonParser parser = new JsonParser();
+                JsonObject root = parser.parse(responseData).getAsJsonObject();
 
-                String status = root.getString("result");
+                String status = root.get("result").getAsString();
 
                 if(status.equalsIgnoreCase("success")) {
-                    // cart success
-                    String product = "UNKNOWN";
-
-                    try {
-                        JSONArray basket = root.getJSONArray("basket");
-                        product = basket.getJSONObject(0).getString("product_id");
-                    } catch(JSONException ex) {}
-
                     this.running.set(false);
                     this.httpClient.close();
-                    Console.logSuccess(String.format("Carted %s successfully!", this.pid + " in size " + this.size), this.id);
+                    Console.logSuccess(String.format("Carted %s successfully!", this.options.getPid() + " in size " + this.options.getSize()), this.id);
                     return true;
                 }
 
                 Console.logError(String.format("Error carting: %s", status), this.id);
                 return this.timeout();
-            } catch(JSONException ex) {
+            } catch(JsonSyntaxException ex) {
                 System.out.println(responseData);
                 ex.printStackTrace();
                 Console.logError("Error parsing response JSON.", this.id);

@@ -2,6 +2,7 @@ package me.cameronb.adidas.util;
 
 import me.cameronb.adidas.Region;
 import me.cameronb.adidas.proxy.Proxy;
+import me.cameronb.adidas.serializable.Config;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpHost;
@@ -52,7 +53,7 @@ public class ClientUtil {
         );
 
         clientBuilder
-                .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36")
+                .setUserAgent(Config.INSTANCE.getUserAgent())
                 .setDefaultHeaders(defaultHeaders)
                 .setDefaultRequestConfig(configBuilder.build())
                 .setDefaultCookieStore(cookieStore)

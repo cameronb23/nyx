@@ -2,6 +2,8 @@ package me.cameronb.adidas.task;
 
 import me.cameronb.adidas.Region;
 import me.cameronb.adidas.proxy.Proxy;
+import me.cameronb.adidas.serializable.Config;
+import me.cameronb.adidas.serializable.TaskData;
 import me.cameronb.adidas.util.ClientUtil;
 import me.cameronb.adidas.util.Console;
 import org.apache.commons.io.IOUtils;
@@ -22,26 +24,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class RequestTask extends Thread {
 
     private final int id;
-    private final Region region;
-    private final String pid;
-    private final double size;
+    private final TaskData options;
+
     private CloseableHttpClient client;
     private BasicCookieStore cookieStore;
-    private CartTask cartTask;
+    private CartTask cartTask = null;
     private Proxy proxy;
 
     private AtomicBoolean running = new AtomicBoolean(true);
     private String clientId = null;
 
-    public RequestTask(int id, Region region, String pid, double size, Proxy proxy) {
+    public RequestTask(int id, TaskData data, Proxy proxy) {
         this.id = id;
-        this.region = region;
-        this.pid = pid;
-        this.size = size;
+        this.options = data;
         this.cookieStore = new BasicCookieStore();
         this.proxy = proxy;
 
-        this.client = ClientUtil.createClient(this.region, this.cookieStore, this.proxy, false);
+        this.client = ClientUtil.createClient(this.options.getRegion(), this.cookieStore, this.proxy, false);
+    }
+
+    public void shutdown() throws IOException {
+        this.running.set(false);
+        this.client.close();
+        if (this.cartTask != null && this.cartTask.getRunning().get()) {
+            this.cartTask.shutdown();
+        }
     }
 
     @Override
@@ -64,7 +71,7 @@ public class RequestTask extends Thread {
 
             if(passed) {
                 Console.logSuccess("Passed splash!", this.id);
-                this.cartTask = new CartTask(this.id, this.region, this.pid, this.size, this.cookieStore, this.proxy, this.clientId);
+                this.cartTask = new CartTask(this.id, this.options, this.cookieStore, this.proxy, this.clientId);
                 this.cartTask.start();
 
                 // RELEASE RESOURCE.
@@ -72,7 +79,7 @@ public class RequestTask extends Thread {
                 return true;
             }
 
-            sleep(5000);
+            sleep(Config.INSTANCE.getRequestDelay());
             return this.loop();
         } catch (IOException | InterruptedException ex) {
             ex.printStackTrace();
@@ -81,8 +88,16 @@ public class RequestTask extends Thread {
     }
 
     private boolean refreshPage() throws IOException {
-//        CloseableHttpResponse response = this.client.execute(new HttpGet(String.format("http://www.adidas.com/%s/apps/yeezy/", this.region.getMicroSite())));
-        CloseableHttpResponse response = this.client.execute(new HttpGet("http://www.cartchefs.co.uk/splash_test"));
+
+        String url;
+
+        if(Config.INSTANCE.isTestMode()) {
+            url = "http://www.cartchefs.co.uk/splash_test";
+        } else {
+            url = String.format("http://www.adidas.com/%s/apps/yeezy/", this.options.getRegion().getMicroSite());
+        }
+
+        CloseableHttpResponse response = this.client.execute(new HttpGet(url));
         HttpEntity responseEntity = response.getEntity();
         InputStream dataStream = responseEntity.getContent();
 
@@ -121,8 +136,8 @@ public class RequestTask extends Thread {
 //                sitekey = captchaSplit.split("'")[0];
 //            }
 
-            System.out.println("Client ID: " + clientId);
-            System.out.println("Sitekey: " + sitekey);
+            Console.logSuccess("ClientID: " + clientId, this.id);
+            Console.logSuccess("Sitekey: " + sitekey, this.id);
 
             this.clientId = clientId;
 

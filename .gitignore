@@ -25,9 +25,11 @@ hs_err_pid*
 .idea/
 *.iml
 target/
+dependency-reduced-pom.xml
 
 # macOS
 .DS_Store
 
 proxies.txt
 tasks.json
+config.xml
