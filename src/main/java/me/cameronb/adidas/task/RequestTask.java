@@ -1,5 +1,6 @@
 package me.cameronb.adidas.task;
 
+import com.google.common.net.HttpHeaders;
 import me.cameronb.adidas.Region;
 import me.cameronb.adidas.proxy.Proxy;
 import me.cameronb.adidas.serializable.Config;
@@ -10,12 +11,15 @@ import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -42,7 +46,7 @@ public class RequestTask extends Thread {
         this.proxy = proxy;
 
         if(Config.INSTANCE.isTestMode()) {
-            this.url = "http://www.cartchefs.co.uk/splash_test";
+            this.url = "http://www.cartchefs.co.uk/splash";
         } else {
             this.url = String.format("http://www.adidas.com/%s/apps/yeezy/", this.options.getRegion().getMicroSite());
         }
@@ -80,8 +84,10 @@ public class RequestTask extends Thread {
 
             if(passed) {
                 Console.logSuccess("Passed splash!", this.id);
-                this.cartTask = new CartTask(this.id, this.options, this.cookieStore, this.proxy, this.clientId);
-                this.cartTask.start();
+//                this.cartTask = new CartTask(this.id, this.options, this.cookieStore, this.proxy, this.clientId);
+//                this.cartTask.start();
+
+                new FallbackBrowser(this.url, this.cookieStore, this.proxy).start();
 
                 // RELEASE RESOURCE.
                 this.client.close();
@@ -96,12 +102,29 @@ public class RequestTask extends Thread {
     }
 
     private boolean refreshPage() throws IOException {
+        HttpGet request = new HttpGet(this.url);
 
-        CloseableHttpResponse response = this.client.execute(new HttpGet(this.url));
+        String cookieHeader = ClientUtil.getCookieString(this.cookieStore);
+
+        if(cookieHeader != null) {
+            request.setHeader(HttpHeaders.COOKIE, cookieHeader);
+        }
+
+        CloseableHttpResponse response = this.client.execute(request);
+
         HttpEntity responseEntity = response.getEntity();
         InputStream dataStream = responseEntity.getContent();
 
         String parsed = IOUtils.toString(dataStream, "UTF-8");
+
+        // detect JS cookie code
+        String check = "document.cookie=\"";
+        int checkIndex = parsed.indexOf(check);
+        while(checkIndex > 0) {
+            String cookie = parsed.substring((checkIndex + check.length())).split("\"")[0];
+            this.cookieStore.addCookie(ClientUtil.createCookie(cookie, this.url));
+            checkIndex = parsed.indexOf(check, checkIndex + 1);
+        }
 
         // release resources
         EntityUtils.consume(responseEntity);
@@ -112,12 +135,12 @@ public class RequestTask extends Thread {
 
         if(parsed.contains("<!-- ERR_CACHE_ACCESS_DENIED -->")) {
             // proxy connection failed
+            Console.logError("Proxy denied our access...", this.id);
             return false;
         }
 
         if(parsed.contains("captchaform")) {
             // passed splash
-
             String clientId = null;
             String sitekey = null;
 

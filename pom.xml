@@ -13,17 +13,18 @@
     </properties>
 
     <dependencies>
-        <!--<dependency>-->
-            <!--<groupId>org.seleniumhq.selenium</groupId>-->
-            <!--<artifactId>selenium-java</artifactId>-->
-            <!--<version>3.4.0</version>-->
-            <!--<scope>compile</scope>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>3.5.3</version>
+            <scope>compile</scope>
+        </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>23.5-jre</version>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -33,15 +34,6 @@
             <version>1.10.2</version>
             <scope>compile</scope>
         </dependency>
-
-        <!--<dependency>-->
-
-            <!--&lt;!&ndash; HEADLESS BROWSER &ndash;&gt;-->
-            <!--<groupId>org.seleniumhq.selenium</groupId>-->
-            <!--<artifactId>htmlunit-driver</artifactId>-->
-            <!--<version>2.26</version>-->
-            <!--<scope>compile</scope>-->
-        <!--</dependency>-->
 
         <!--<dependency>-->
             <!--&lt;!&ndash; a wrapper for selenium in java &ndash;&gt;-->
@@ -184,6 +176,8 @@
                     <product>${project.build.finalName}</product>
                     <vendor>Cameron Butler</vendor>
                     <version>${project.version}</version>
+
+                    <protectData>true</protectData>
 
                     <mainClass>me.cameronb.adidas.Application</mainClass>
                     <jetHome>C:\jet12.0-std-x86</jetHome>

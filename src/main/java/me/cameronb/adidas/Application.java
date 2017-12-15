@@ -14,6 +14,7 @@ import org.beryx.textio.TextIO;
 import org.beryx.textio.TextIoFactory;
 import org.fusesource.jansi.AnsiConsole;
 import org.json.JSONException;
+import org.openqa.selenium.chrome.ChromeDriverService;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -43,6 +44,9 @@ public class Application {
     private static CaptchaWebServer webServer;
 
     @Getter
+    private static ChromeDriverService driverService;
+
+    @Getter
     private static ExecutorService executor = Executors.newCachedThreadPool();
 
     private static LinkedList<RequestTask> runningTasks = new LinkedList<>();
@@ -65,6 +69,8 @@ public class Application {
         } else {
             Config.INSTANCE = new Config();
         }
+
+        System.setProperty("webdriver.chrome.driver", Config.INSTANCE.getChromeDriverPath());
 
         Console.logBasic("@|green Configuration loaded |@");
 
@@ -89,6 +95,25 @@ public class Application {
             System.exit(0);
         }
 
+        startPrompt();
+    }
+
+    public static void startServices() {
+        Console.logBasic("@|yellow Starting api server |@");
+
+        driverService = new ChromeDriverService.Builder()
+                .usingDriverExecutable(new File(Config.INSTANCE.getChromeDriverPath()))
+                .usingAnyFreePort()
+                .build();
+
+        try {
+            driverService.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Console.logBasic("@|red Unable to start api server. |@");
+            System.exit(1);
+        }
+
         try {
             webServer = new CaptchaWebServer();
         } catch (IOException e) {
@@ -96,15 +121,16 @@ public class Application {
             System.exit(0);
         }
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> runningTasks.forEach(t -> {
-            try {
-                t.shutdown();
-            } catch(IOException ex) {
-                System.out.println("Failed to shutdown task");
-            }
-        })));
-
-        startPrompt();
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            driverService.stop();
+            runningTasks.forEach(t -> {
+                try {
+                    t.shutdown();
+                } catch(IOException ex) {
+                    System.out.println("Failed to shutdown task");
+                }
+            });
+        }));
     }
 
     private static void startPrompt() {
@@ -121,6 +147,7 @@ public class Application {
                 taskSetup(textIO);
                 break;
             case 2:
+                startServices();
                 Console.logBasic("@|yellow Loading tasks... |@");
                 List<TaskData> tasks = loadTasks();
                 Console.logSuccess(String.format("@|green %s tasks loaded |@", tasks.size()), -1);

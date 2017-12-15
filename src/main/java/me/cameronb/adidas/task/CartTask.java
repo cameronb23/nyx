@@ -1,5 +1,6 @@
 package me.cameronb.adidas.task;
 
+import com.google.common.net.HttpHeaders;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
@@ -55,6 +56,7 @@ public class CartTask extends Thread {
 
     @Getter
     private AtomicBoolean running = new AtomicBoolean(true);
+    private int failures = 0;
 
     public CartTask(int id, TaskData data, BasicCookieStore cookieStore, Proxy proxy, String clientId) {
         this.id = id;
@@ -195,6 +197,12 @@ public class CartTask extends Thread {
             return this.timeout();
         }
 
+        if(this.failures >= 3) {
+            this.running.set(false);
+            new FallbackBrowser(this.url, this.cookieStore, this.proxy).start();
+            return false;
+        }
+
         String recapResponse = null;
 
         if(this.clientId != null) {
@@ -204,6 +212,12 @@ public class CartTask extends Thread {
         }
 
         HttpPost request = new HttpPost(this.url);
+
+        String cookieString = ClientUtil.getCookieString(this.cookieStore);
+
+        if(cookieString != null) {
+            request.setHeader(HttpHeaders.COOKIE, cookieString);
+        }
 
         try {
             List<NameValuePair> params = new ArrayList<>(Arrays.asList(
@@ -241,6 +255,7 @@ public class CartTask extends Thread {
             EntityUtils.consume(responseEntity);
 
             if(statusCode == 401 || statusCode == 403) {
+                this.failures++;
                 Console.logError("Failed ATC: Access Denied", this.id);
                 return this.timeout();
             }
